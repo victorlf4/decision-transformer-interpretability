@@ -280,7 +280,6 @@ def experiment(
 
     def save(epoch,checkpoint_file):#TODO maybe merge whith kmeans
         torch.save({'epoch': epoch,
-                'steps': trainer.total_steps,
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
                 },checkpoint_file)
@@ -292,7 +291,6 @@ def experiment(
                 model.load_state_dict(checkpoint['model_state_dict'])
                 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
                 iter=checkpoint['epoch']
-                trainer.total_steps=checkpoint['steps']
                 return iter
                 
     if os.path.exists(checkpoint_file) and save_checkpoints:
