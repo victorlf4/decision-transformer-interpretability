@@ -2,6 +2,7 @@ import gym
 import numpy as np
 import torch
 import wandb
+import os
 
 import argparse
 import pickle
@@ -32,6 +33,8 @@ def experiment(
 
     env_name, dataset = variant['env'], variant['dataset']
     model_type = variant['model_type']
+    save_checkpoints=variant['save_checkpoints']
+    checkpoint_file ="./models/"+variant['model_name']
     group_name = f'{exp_prefix}-{env_name}-{dataset}'
     exp_prefix = f'{group_name}-{random.randint(int(1e5), int(1e6) - 1)}'
 
@@ -157,8 +160,7 @@ def experiment(
         a = torch.from_numpy(np.concatenate(a, axis=0)).to(dtype=torch.float32, device=device)
         r = torch.from_numpy(np.concatenate(r, axis=0)).to(dtype=torch.float32, device=device)
         d = torch.from_numpy(np.concatenate(d, axis=0)).to(dtype=torch.long, device=device)
-        rtg = torch.from_numpy(np.concatenate(rtg, axis=0)).to(dtype=torch.float32, device=device)
-        timesteps = torch.from_numpy(np.concatenate(timesteps, axis=0)).to(dtype=torch.long, device=device)
+        rtg = torch.from_numpy(np.concimport osp.concatenate(timesteps, axis=0)).to(dtype=torch.long, device=device)
         mask = torch.from_numpy(np.concatenate(mask, axis=0)).to(device=device)
 
         return s, a, r, d, rtg, timesteps, mask
@@ -274,8 +276,30 @@ def experiment(
         )
         # wandb.watch(model)  # wandb has some bug
 
+    def save(epoch,checkpoint_file):#TODO maybe merge whith kmeans
+        torch.save({'epoch': epoch,
+                'steps': trainer.total_steps,
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                },checkpoint_file)
+        wandb.save(checkpoint_file)
+
+    def load(validation_data=None):
+                checkpoint = torch.load(checkpoint_file)
+                model.load_state_dict(checkpoint['model_state_dict'])
+                optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+                iter=checkpoint['epoch']
+                trainer.total_steps=checkpoint['steps']
+                return iter
+                
+    if os.path.exists(checkpoint_file) and save_checkpoints:
+        print("Loading saved decision transformer model")#TODO make it so weight and biases continues in the same run if possible
+        startingIter = load()
+
     for iter in range(variant['max_iters']):
         outputs = trainer.train_iteration(num_steps=variant['num_steps_per_iter'], iter_num=iter+1, print_logs=True)
+        if(save_checkpoints):
+            save(iter,checkpoint_file)
         if log_to_wandb:
             wandb.log(outputs)
 
@@ -292,7 +316,7 @@ if __name__ == '__main__':
     parser.add_argument('--embed_dim', type=int, default=128)
     parser.add_argument('--n_layer', type=int, default=3)
     parser.add_argument('--n_head', type=int, default=1)
-    parser.add_argument('--activation_function', type=str, default='relu')
+    parser.add_argument('--activation_function', type=str, default='relu')#TODO make relu
     parser.add_argument('--dropout', type=float, default=0.1)
     parser.add_argument('--learning_rate', '-lr', type=float, default=1e-4)
     parser.add_argument('--weight_decay', '-wd', type=float, default=1e-4)
@@ -302,6 +326,8 @@ if __name__ == '__main__':
     parser.add_argument('--num_steps_per_iter', type=int, default=10000)
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--log_to_wandb', '-w', type=bool, default=False)
+    parser.add_argument('--model_name', type=str, default="Default_model",help="Name of the model used in the checkpoint file and in wandb")
+    parser.add_argument('--save_checkpoints','-c', type=bool, default=False,help="If true saves the model each iteration")
     
     args = parser.parse_args()
 
