@@ -160,7 +160,8 @@ def experiment(
         a = torch.from_numpy(np.concatenate(a, axis=0)).to(dtype=torch.float32, device=device)
         r = torch.from_numpy(np.concatenate(r, axis=0)).to(dtype=torch.float32, device=device)
         d = torch.from_numpy(np.concatenate(d, axis=0)).to(dtype=torch.long, device=device)
-        rtg = torch.from_numpy(np.concatenate(timesteps, axis=0)).to(dtype=torch.long, device=device)
+        rtg = torch.from_numpy(np.concatenate(rtg, axis=0)).to(dtype=torch.float32, device=device)
+        timesteps = torch.from_numpy(np.concatenate(timesteps, axis=0)).to(dtype=torch.long, device=device)
         mask = torch.from_numpy(np.concatenate(mask, axis=0)).to(device=device)
 
         return s, a, r, d, rtg, timesteps, mask
@@ -269,12 +270,13 @@ def experiment(
 
     if log_to_wandb:
         wandb.init(
-            name=exp_prefix,
-            group=group_name,
-            project='decision-transformer',
+            name=f'{variant["model_name"]}-{exp_prefix}',
+            group=f'decisionTransformer-{group_name}',
+            project='OfflineRL-interpretability',
             config=variant
         )
-        # wandb.watch(model)  # wandb has some bug
+
+
 
     def save(epoch,checkpoint_file):#TODO maybe merge whith kmeans
         torch.save({'epoch': epoch,
@@ -283,6 +285,7 @@ def experiment(
                 'optimizer_state_dict': optimizer.state_dict(),
                 },checkpoint_file)
         wandb.save(checkpoint_file)
+        
 
     def load(validation_data=None):
                 checkpoint = torch.load(checkpoint_file)
